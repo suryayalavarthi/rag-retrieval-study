@@ -133,7 +133,12 @@ Do not commit: results/, data/, *.faiss, *.bak, API keys
 
 ## Current Status
 > **Update this section at the end of every session.**
-- [ ] Contriever index built (02_build_index.py)
+- [x] Contriever index built (02_build_index.py) — DONE
+  - 100,000 Wikipedia passages indexed
+  - Contriever embeddings 768 dimensions
+  - index.faiss 293MB — stored locally
+  - passages.jsonl — stored locally
+  - Runtime: 14 minutes on Kaggle P100
 - [ ] Labels generated (03_generate_labels.py)
 - [ ] Scorer trained (04_train_scorer.py)
 - [ ] Main experiments run (05_run_experiments.py)
