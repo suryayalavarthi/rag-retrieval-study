@@ -60,10 +60,9 @@ print("\n[1/4] Loading Wikipedia passages...")
 t0 = time.time()
 
 wiki = load_dataset(
-    "wikipedia",
-    "20220301.en",
+    "wikimedia/wikipedia",
+    "20231101.en",
     split="train",
-    trust_remote_code=True,
 )
 
 # Sample NUM_PASSAGES articles deterministically
