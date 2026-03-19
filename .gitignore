@@ -1,0 +1,55 @@
+# Data
+data/
+*.jsonl
+
+# Models
+models/
+*.bin
+*.pt
+*.safetensors
+
+# Results
+results/
+*.csv
+
+# FAISS indices
+*.faiss
+*.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wandb
+wandb/
+
+# Backup files
+*.bak
+
+# API keys (NEVER commit these)
+*.key
+*secret*
+secrets.txt

@@ -1,0 +1,112 @@
+# Base configuration for Cost-Aware RAG experiments
+# ================================================
+
+project:
+  name: "cost-aware-rag"
+  seed: 42
+  output_dir: "./results"
+
+# Retrieval configuration
+retrieval:
+  model: "facebook/contriever-msmarco"
+  index_type: "faiss_flat"  # faiss_flat for exact search, faiss_ivf for approximate
+  top_k: 5                  # Number of passages to retrieve
+  max_passage_length: 256   # Max tokens per passage
+  batch_size: 64
+
+# Datasets
+datasets:
+  natural_questions:
+    name: "natural_questions"
+    split: "validation"
+    max_samples: null  # null = use all, set to int for debugging
+  hotpotqa:
+    name: "hotpot_qa"
+    config: "distractor"
+    split: "validation"
+    max_samples: null
+  musique:
+    name: "dwivedodaya/musique"
+    split: "validation"
+    max_samples: null
+
+# Sufficiency Scorer
+scorer:
+  model: "microsoft/deberta-v3-base"
+  max_length: 512
+  learning_rate: 2.0e-5
+  batch_size: 16
+  num_epochs: 5
+  warmup_ratio: 0.1
+  weight_decay: 0.01
+  # Training data split
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  # Labels: 0=insufficient (abstain), 1=moderate (needs strong), 2=sufficient (weak is fine)
+  num_labels: 3
+
+# Generator Models
+generators:
+  strong:
+    provider: "openai"
+    model: "gpt-4o"
+    max_tokens: 256
+    temperature: 0.0
+    cost_per_1k_input: 0.0025   # $2.50 per 1M input tokens
+    cost_per_1k_output: 0.01    # $10 per 1M output tokens
+  weak:
+    provider: "openai"
+    model: "gpt-4o-mini"
+    max_tokens: 256
+    temperature: 0.0
+    cost_per_1k_input: 0.00015  # $0.15 per 1M input tokens
+    cost_per_1k_output: 0.0006  # $0.60 per 1M output tokens
+  # Open-source alternative (for budget-constrained experiments)
+  weak_local:
+    provider: "local"
+    model: "meta-llama/Meta-Llama-3-8B-Instruct"
+    max_tokens: 256
+    temperature: 0.0
+    cost_per_1k_input: 0.0
+    cost_per_1k_output: 0.0
+
+# Router Configuration
+router:
+  # Thresholds for routing decisions
+  # sufficiency_score >= high_threshold → weak model
+  # low_threshold <= sufficiency_score < high_threshold → strong model
+  # sufficiency_score < low_threshold → abstain
+  high_threshold: 0.7
+  low_threshold: 0.3
+  # Sweep thresholds for Pareto analysis
+  threshold_sweep:
+    high: [0.5, 0.6, 0.7, 0.8, 0.9]
+    low: [0.1, 0.2, 0.3, 0.4]
+
+# Evaluation
+evaluation:
+  metrics:
+    - exact_match
+    - f1
+    - cost_reduction
+    - hallucination_rate
+    - abstention_precision
+    - abstention_recall
+    - router_overhead_ms
+  bootstrap_samples: 1000  # For confidence intervals
+  significance_level: 0.05
+
+# Baselines
+baselines:
+  - always_strong      # All queries → strong model
+  - always_weak        # All queries → weak model
+  - random_router      # 50/50 random routing
+  - query_only_router  # RouteLLM-style (no retrieval signals)
+  # - self_rag          # Optional: requires special model setup
+
+# Experiment tracking
+wandb:
+  project: "cost-aware-rag"
+  entity: null  # Set to your wandb username
+  enabled: false  # Set to true when ready
