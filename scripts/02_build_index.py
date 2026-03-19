@@ -36,7 +36,6 @@ INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MODEL_NAME = "facebook/contriever-msmarco"
-# NUM_PASSAGES: full DPR Wikipedia corpus ~21M passages
 BATCH_SIZE = 128
 SEED = 42
 PROGRESS_EVERY = 10_000
@@ -57,14 +56,13 @@ print("=" * 60)
 
 # ── Step 1: Load DPR Wikipedia passages ──────────────────────────────────────
 print("\n[1/4] Loading DPR Wikipedia passages...")
-print("  This will download ~40GB. Takes 20-30 mins.")
+print("  Downloading ~13GB. Takes 20-30 mins.")
 t0 = time.time()
 
 wiki = load_dataset(
-    "wiki_dpr",
+    "facebook/wiki_dpr",
     "psgs_w100.multiset.no_index",
     split="train",
-    trust_remote_code=True,
 )
 
 passages = []
@@ -130,12 +128,24 @@ embeddings_matrix = np.vstack(all_embeddings)
 print(f"  Encoding complete. Shape: {embeddings_matrix.shape}  Time: {time.time()-t_encode:.1f}s")
 
 # ── Step 4: Build and save FAISS index ───────────────────────────────────────
-print(f"\n[4/4] Building FAISS flat L2 index...")
+print(f"\n[4/4] Building IVFPQ FAISS index...")
 t_faiss = time.time()
 
 dim = embeddings_matrix.shape[1]
-index = faiss.IndexFlatL2(dim)
+nlist = 4096
+m = 96
+
+quantizer = faiss.IndexFlatIP(dim)
+index = faiss.IndexIVFPQ(quantizer, dim, nlist, m, 8)
+
+print(f"  Training index on {min(100000, len(embeddings_matrix)):,} vectors...")
+train_vectors = embeddings_matrix[:100000]
+faiss.normalize_L2(train_vectors)
+index.train(train_vectors)
+
+faiss.normalize_L2(embeddings_matrix)
 index.add(embeddings_matrix)
+index.nprobe = 64
 
 index_path = str(INDEX_DIR / "index.faiss")
 faiss.write_index(index, index_path)
