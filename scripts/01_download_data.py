@@ -30,9 +30,12 @@ DATA_DIR.mkdir(exist_ok=True)
 
 
 def save_nq():
+    out = DATA_DIR / "nq_validation.jsonl"
+    if out.exists():
+        print("Skipping NQ — already exists")
+        return
     print("Downloading NQ (google-research-datasets/nq_open)...")
     ds = load_dataset("google-research-datasets/nq_open", split="validation")
-    out = DATA_DIR / "nq_validation.jsonl"
     with open(out, "w") as f:
         for i, item in enumerate(ds):
             record = {
@@ -46,9 +49,12 @@ def save_nq():
 
 
 def save_hotpotqa():
+    out = DATA_DIR / "hotpotqa_validation.jsonl"
+    if out.exists():
+        print("Skipping HotpotQA — already exists")
+        return
     print("Downloading HotpotQA (hotpot_qa, distractor)...")
     ds = load_dataset("hotpot_qa", "distractor", split="validation")
-    out = DATA_DIR / "hotpotqa_validation.jsonl"
     with open(out, "w") as f:
         for i, item in enumerate(ds):
             record = {
@@ -62,9 +68,16 @@ def save_hotpotqa():
 
 
 def save_musique():
-    print("Downloading MuSiQue (dwivedodaya/musique)...")
-    ds = load_dataset("dwivedodaya/musique", split="validation")
     out = DATA_DIR / "musique_validation.jsonl"
+    if out.exists():
+        print("Skipping MuSiQue — already exists")
+        return
+    print("Downloading MuSiQue...")
+    try:
+        ds = load_dataset("allenai/musique", split="validation")
+    except Exception:
+        print("  allenai/musique failed, trying fallback...")
+        ds = load_dataset("musique", split="validation")
     with open(out, "w") as f:
         for i, item in enumerate(ds):
             ans = item["answer"]
