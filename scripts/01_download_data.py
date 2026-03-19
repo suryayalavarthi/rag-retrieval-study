@@ -68,16 +68,12 @@ def save_hotpotqa():
 
 
 def save_musique():
-    out = DATA_DIR / "musique_validation.jsonl"
-    if out.exists():
+    if (DATA_DIR / "musique_validation.jsonl").exists():
         print("Skipping MuSiQue — already exists")
         return
     print("Downloading MuSiQue...")
-    try:
-        ds = load_dataset("allenai/musique", split="validation")
-    except Exception:
-        print("  allenai/musique failed, trying fallback...")
-        ds = load_dataset("musique", split="validation")
+    ds = load_dataset("dgslibisey/MuSiQue", split="validation")
+    out = DATA_DIR / "musique_validation.jsonl"
     with open(out, "w") as f:
         for i, item in enumerate(ds):
             ans = item["answer"]
