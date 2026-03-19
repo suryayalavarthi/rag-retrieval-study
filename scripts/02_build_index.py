@@ -1,17 +1,17 @@
 # RUN ON: KAGGLE
-# Reason: Encoding 100k Wikipedia passages with Contriever requires GPU and significant memory.
+# Reason: Encoding 21M DPR Wikipedia passages with Contriever requires GPU and significant memory.
 
 """
 scripts/02_build_index.py
 
 Builds a FAISS retrieval index using Contriever (facebook/contriever-msmarco)
-embeddings over 100,000 Wikipedia passages.
+embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
   BASE_DIR/results/faiss_index/index.faiss  — FAISS flat L2 index
   BASE_DIR/results/passages.jsonl           — passage texts (one JSON per line)
 
-Run on Kaggle T4. Estimated runtime: 60-90 minutes on Kaggle T4.
+Run on Kaggle P100. Estimated runtime: 6-8 hours on Kaggle P100.
 """
 
 import os
@@ -36,8 +36,8 @@ INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MODEL_NAME = "facebook/contriever-msmarco"
-NUM_PASSAGES = 100_000
-BATCH_SIZE = 64
+# NUM_PASSAGES: full DPR Wikipedia corpus ~21M passages
+BATCH_SIZE = 128
 SEED = 42
 PROGRESS_EVERY = 10_000
 
@@ -48,43 +48,34 @@ torch.manual_seed(SEED)
 print("=" * 60)
 print("02_build_index.py — Build Contriever + FAISS Index")
 print("=" * 60)
-print(f"Estimated runtime: 60-90 minutes on Kaggle T4")
+print(f"Estimated runtime: 6-8 hours on Kaggle P100")
 print(f"Model         : {MODEL_NAME}")
-print(f"Passages      : {NUM_PASSAGES:,}")
+print(f"Corpus        : DPR Wikipedia (~21M passages)")
 print(f"Batch size    : {BATCH_SIZE}")
 print(f"Output dir    : {RESULTS_DIR}")
 print("=" * 60)
 
-# ── Step 1: Load Wikipedia passages ──────────────────────────────────────────
-print("\n[1/4] Loading Wikipedia passages...")
+# ── Step 1: Load DPR Wikipedia passages ──────────────────────────────────────
+print("\n[1/4] Loading DPR Wikipedia passages...")
+print("  This will download ~40GB. Takes 20-30 mins.")
 t0 = time.time()
 
 wiki = load_dataset(
-    "wikimedia/wikipedia",
-    "20231101.en",
+    "wiki_dpr",
+    "psgs_w100.multiset.no_index",
     split="train",
+    trust_remote_code=True,
 )
 
-# Sample NUM_PASSAGES articles deterministically
-rng = random.Random(SEED)
-indices = rng.sample(range(len(wiki)), min(NUM_PASSAGES, len(wiki)))
-sampled = wiki.select(indices)
-
-# Split each article into the first ~100-word passage chunk
 passages = []
-for item in sampled:
-    text = item["text"].strip()
-    # Take first 100 words as the passage
-    words = text.split()
-    passage = " ".join(words[:100])
-    if passage:
-        passages.append({
-            "id": item["id"],
-            "title": item["title"],
-            "text": passage,
-        })
-    if len(passages) >= NUM_PASSAGES:
-        break
+for i, item in enumerate(wiki):
+    passages.append({
+        "id": str(item["id"]),
+        "title": item["title"],
+        "text": item["text"],
+    })
+    if (i + 1) % 1_000_000 == 0:
+        print(f"  Loaded {i+1:,} passages...")
 
 print(f"  Loaded {len(passages):,} passages in {time.time()-t0:.1f}s")
 
@@ -159,7 +150,7 @@ print(f"  Saved to      : {index_path}")
 total_time = time.time() - t0
 print("\n" + "=" * 60)
 print("DONE")
-print(f"  Total passages indexed : {len(passages):,}")
+print(f"  Total passages indexed : {len(passages):,} (DPR Wikipedia)")
 print(f"  Embedding dimension    : {dim}")
 print(f"  Total runtime          : {total_time/60:.1f} minutes")
 print(f"  Index saved to         : {index_path}")
