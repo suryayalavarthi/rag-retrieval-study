@@ -1,94 +1,89 @@
-#!/usr/bin/env python3
-"""
-Download datasets for Cost-Aware RAG experiments.
+# RUN ON: LAPTOP
+# Reason: Just downloads and formats datasets, no GPU needed, fast.
 
-Downloads: Natural Questions (Open), HotpotQA, MuSiQue
-Saves to ./data/ directory in JSONL format for reproducibility.
+"""
+scripts/01_download_data.py
+
+Downloads NQ, HotpotQA, and MuSiQue validation splits from HuggingFace
+and saves them in the format required by 03_generate_labels.py.
+
+Output format (one JSON line per query):
+{
+  "query_id": "nq_0",
+  "question": "who wrote hamlet",
+  "gold_answers": ["William Shakespeare"],
+  "dataset": "nq"
+}
+
+Outputs:
+  data/nq_validation.jsonl
+  data/hotpotqa_validation.jsonl
+  data/musique_validation.jsonl
 """
 
 import json
-import logging
 from pathlib import Path
+from datasets import load_dataset
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
-
-
-def download_natural_questions(data_dir: Path):
-    """Download NQ Open dataset."""
-    from datasets import load_dataset
-
-    logger.info("Downloading Natural Questions (Open)...")
-    ds = load_dataset("google-research-datasets/nq_open")
-
-    for split in ["train", "validation"]:
-        if split in ds:
-            output_path = data_dir / "nq_open" / f"{split}.jsonl"
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w") as f:
-                for item in ds[split]:
-                    f.write(json.dumps(dict(item)) + "\n")
-            logger.info(f"  {split}: {len(ds[split])} examples → {output_path}")
+DATA_DIR = Path("data")
+DATA_DIR.mkdir(exist_ok=True)
 
 
-def download_hotpotqa(data_dir: Path):
-    """Download HotpotQA (distractor setting)."""
-    from datasets import load_dataset
-
-    logger.info("Downloading HotpotQA (distractor)...")
-    ds = load_dataset("hotpot_qa", "distractor")
-
-    for split in ["train", "validation"]:
-        if split in ds:
-            output_path = data_dir / "hotpotqa" / f"{split}.jsonl"
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w") as f:
-                for item in ds[split]:
-                    f.write(json.dumps(dict(item)) + "\n")
-            logger.info(f"  {split}: {len(ds[split])} examples → {output_path}")
-
-
-def download_musique(data_dir: Path):
-    """Download MuSiQue dataset."""
-    from datasets import load_dataset
-
-    logger.info("Downloading MuSiQue...")
-    try:
-        ds = load_dataset("dwivedodaya/musique")
-        for split in ds:
-            output_path = data_dir / "musique" / f"{split}.jsonl"
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(output_path, "w") as f:
-                for item in ds[split]:
-                    f.write(json.dumps(dict(item)) + "\n")
-            logger.info(f"  {split}: {len(ds[split])} examples → {output_path}")
-    except Exception as e:
-        logger.warning(f"Could not download MuSiQue from HuggingFace: {e}")
-        logger.info("Try downloading manually from: https://github.com/StonyBrookNLP/musique")
+def save_nq():
+    print("Downloading NQ (google-research-datasets/nq_open)...")
+    ds = load_dataset("google-research-datasets/nq_open", split="validation")
+    out = DATA_DIR / "nq_validation.jsonl"
+    with open(out, "w") as f:
+        for i, item in enumerate(ds):
+            record = {
+                "query_id": f"nq_{i}",
+                "question": item["question"],
+                "gold_answers": item["answer"] if isinstance(item["answer"], list) else [item["answer"]],
+                "dataset": "nq",
+            }
+            f.write(json.dumps(record) + "\n")
+    print(f"  Saved {i+1} queries → {out}")
 
 
-def main():
-    data_dir = Path("./data")
-    data_dir.mkdir(exist_ok=True)
+def save_hotpotqa():
+    print("Downloading HotpotQA (hotpot_qa, distractor)...")
+    ds = load_dataset("hotpot_qa", "distractor", split="validation")
+    out = DATA_DIR / "hotpotqa_validation.jsonl"
+    with open(out, "w") as f:
+        for i, item in enumerate(ds):
+            record = {
+                "query_id": f"hotpotqa_{i}",
+                "question": item["question"],
+                "gold_answers": [item["answer"]],
+                "dataset": "hotpotqa",
+            }
+            f.write(json.dumps(record) + "\n")
+    print(f"  Saved {i+1} queries → {out}")
 
-    logger.info("=" * 60)
-    logger.info("Downloading datasets for Cost-Aware RAG experiments")
-    logger.info("=" * 60)
 
-    download_natural_questions(data_dir)
-    download_hotpotqa(data_dir)
-    download_musique(data_dir)
-
-    logger.info("\n" + "=" * 60)
-    logger.info("All downloads complete!")
-    logger.info(f"Data directory: {data_dir.resolve()}")
-
-    # Print summary
-    total_files = list(data_dir.rglob("*.jsonl"))
-    for f in sorted(total_files):
-        line_count = sum(1 for _ in open(f))
-        logger.info(f"  {f.relative_to(data_dir)}: {line_count:,} examples")
+def save_musique():
+    print("Downloading MuSiQue (dwivedodaya/musique)...")
+    ds = load_dataset("dwivedodaya/musique", split="validation")
+    out = DATA_DIR / "musique_validation.jsonl"
+    with open(out, "w") as f:
+        for i, item in enumerate(ds):
+            ans = item["answer"]
+            gold_answers = ans if isinstance(ans, list) else [ans]
+            record = {
+                "query_id": f"musique_{i}",
+                "question": item["question"],
+                "gold_answers": gold_answers,
+                "dataset": "musique",
+            }
+            f.write(json.dumps(record) + "\n")
+    print(f"  Saved {i+1} queries → {out}")
 
 
 if __name__ == "__main__":
-    main()
+    print("=" * 50)
+    print("01_download_data.py")
+    print("=" * 50)
+    save_nq()
+    save_hotpotqa()
+    save_musique()
+    print("\nDone. Files saved to data/")
