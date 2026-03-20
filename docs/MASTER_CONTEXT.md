@@ -133,7 +133,7 @@ Do not commit: results/, data/, *.faiss, *.bak, API keys
 
 ## Current Status
 > **Update this section at the end of every session.**
-- [x] Contriever index built (02_build_index.py) — DONE
+- [ ] Contriever index built (02_build_index.py) — Prototype index built (100K passages, local) — NOT the production index. Full 21M DPR Kaggle run still required.
   - 100,000 Wikipedia passages indexed
   - Contriever embeddings 768 dimensions
   - index.faiss 293MB — stored locally
