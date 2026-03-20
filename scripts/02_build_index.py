@@ -22,7 +22,6 @@ import numpy as np
 import faiss
 import torch
 from pathlib import Path
-from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModel
 
 # ── Environment ──────────────────────────────────────────────────────────────
@@ -59,26 +58,56 @@ print(f"Batch size    : {BATCH_SIZE}")
 print(f"Output dir    : {RESULTS_DIR}")
 print("=" * 60)
 
-# ── Step 1: Load DPR Wikipedia passages ──────────────────────────────────────
-print("\n[1/4] Loading DPR Wikipedia passages...")
-print("  Downloading ~13GB. Takes 20-30 mins.")
+# ── Step 1: Download and load DPR Wikipedia passages ─────────────────────────
+import urllib.request
+import gzip
+import shutil
+
+PASSAGES_URL = "https://dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz"
+PASSAGES_GZ = RESULTS_DIR / "psgs_w100.tsv.gz"
+PASSAGES_TSV = RESULTS_DIR / "psgs_w100.tsv"
+
+print("\n[1/4] Downloading DPR Wikipedia passages...")
+print("  Source: Facebook AI public files")
+print("  Size: ~3.5GB compressed, ~13GB uncompressed")
+print("  This takes 10-20 mins depending on connection")
 t0 = time.time()
 
-wiki = load_dataset(
-    "facebook/wiki_dpr",
-    "psgs_w100.multiset.no_index",
-    split="train",
-)
+if not PASSAGES_TSV.exists():
+    if not PASSAGES_GZ.exists():
+        print("  Downloading psgs_w100.tsv.gz...")
+        urllib.request.urlretrieve(
+            PASSAGES_URL,
+            str(PASSAGES_GZ),
+            reporthook=lambda count, block, total: print(
+                f"  Downloaded {count*block/1e9:.1f}GB / {total/1e9:.1f}GB",
+                end="\r"
+            ) if count % 1000 == 0 else None
+        )
+        print("\n  Download complete.")
 
+    print("  Extracting TSV...")
+    with gzip.open(str(PASSAGES_GZ), 'rb') as f_in:
+        with open(str(PASSAGES_TSV), 'wb') as f_out:
+            shutil.copyfileobj(f_in, f_out)
+    print("  Extraction complete.")
+else:
+    print("  TSV already exists, skipping download.")
+
+print("  Loading passages from TSV...")
 passages = []
-for i, item in enumerate(wiki):
-    passages.append({
-        "id": str(item["id"]),
-        "title": item["title"],
-        "text": item["text"],
-    })
-    if (i + 1) % 1_000_000 == 0:
-        print(f"  Loaded {i+1:,} passages...")
+with open(str(PASSAGES_TSV), 'r', encoding='utf-8') as f:
+    next(f)  # skip header: id\ttext\ttitle
+    for i, line in enumerate(f):
+        parts = line.strip().split('\t')
+        if len(parts) >= 3:
+            passages.append({
+                "id": parts[0],
+                "text": parts[1],
+                "title": parts[2],
+            })
+        if (i + 1) % 1_000_000 == 0:
+            print(f"  Loaded {i+1:,} passages...")
 
 print(f"  Loaded {len(passages):,} passages in {time.time()-t0:.1f}s")
 
