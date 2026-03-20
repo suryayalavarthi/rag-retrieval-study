@@ -8,8 +8,11 @@ Builds a FAISS retrieval index using Contriever (facebook/contriever-msmarco)
 embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
-  BASE_DIR/results/faiss_index/index.faiss  — FAISS flat L2 index
-  BASE_DIR/results/passages.jsonl           — passage texts (one JSON per line)
+  BASE_DIR/results/faiss_index/index.faiss  — IVFPQ compressed FAISS index
+  BASE_DIR/results/passages_meta.jsonl      — passage id + title only (no full text)
+
+Note: passages.jsonl (full text, ~13GB) is NOT saved to avoid Kaggle disk limit.
+Full passage text is retrieved at query time via passage ID.
 
 Run on Kaggle P100. Estimated runtime: 6-8 hours on Kaggle P100.
 """
@@ -28,7 +31,6 @@ from transformers import AutoTokenizer, AutoModel
 BASE_DIR = os.environ.get("KAGGLE_WORKING_DIR", ".")
 RESULTS_DIR = Path(BASE_DIR) / "results"
 INDEX_DIR = RESULTS_DIR / "faiss_index"
-PASSAGES_FILE = RESULTS_DIR / "passages.jsonl"
 
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
@@ -111,12 +113,15 @@ with open(str(PASSAGES_TSV), 'r', encoding='utf-8') as f:
 
 print(f"  Loaded {len(passages):,} passages in {time.time()-t0:.1f}s")
 
-# ── Step 2: Save passages.jsonl ───────────────────────────────────────────────
-print(f"\n[2/4] Saving passages to {PASSAGES_FILE}...")
-with open(PASSAGES_FILE, "w", encoding="utf-8") as f:
+# ── Step 2: Save passage metadata (id + title only, no full text) ─────────────
+# Full passages.jsonl (~13GB) is NOT saved here — disk space on Kaggle is limited.
+# Full text is retrieved at query time from the TSV via passage ID in 03_generate_labels.py.
+META_FILE = RESULTS_DIR / "passages_meta.jsonl"
+print(f"\n[2/4] Saving passage metadata to {META_FILE}...")
+with open(str(META_FILE), "w") as f:
     for p in passages:
-        f.write(json.dumps(p, ensure_ascii=False) + "\n")
-print(f"  Saved {len(passages):,} passages.")
+        f.write(json.dumps({"id": p["id"], "title": p["title"]}) + "\n")
+print(f"  Saved {len(passages):,} passage metadata entries")
 
 # ── Step 3: Encode passages with Contriever ───────────────────────────────────
 print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
@@ -201,6 +206,14 @@ print(f"  Total vectors : {index.ntotal:,}")
 print(f"  Index size    : {index_size_mb:.1f} MB")
 print(f"  Saved to      : {index_path}")
 
+# ── Cleanup: delete TSV and GZ to free disk space ────────────────────────────
+if PASSAGES_TSV.exists():
+    os.remove(str(PASSAGES_TSV))
+    print("  Deleted TSV to free disk space.")
+if PASSAGES_GZ.exists():
+    os.remove(str(PASSAGES_GZ))
+    print("  Deleted GZ to free disk space.")
+
 # ── Summary ───────────────────────────────────────────────────────────────────
 total_time = time.time() - t0
 print("\n" + "=" * 60)
@@ -209,5 +222,5 @@ print(f"  Total passages indexed : {len(passages):,} (DPR Wikipedia)")
 print(f"  Embedding dimension    : {dim}")
 print(f"  Total runtime          : {total_time/60:.1f} minutes")
 print(f"  Index saved to         : {index_path}")
-print(f"  Passages saved to      : {PASSAGES_FILE}")
+print(f"  Metadata saved to      : {META_FILE}")
 print("=" * 60)
