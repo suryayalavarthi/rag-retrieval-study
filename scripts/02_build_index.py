@@ -61,11 +61,9 @@ print(f"Output dir    : {RESULTS_DIR}")
 print("=" * 60)
 
 # ── Step 1: Download and load DPR Wikipedia passages ─────────────────────────
-import gzip
-import urllib.request
-
-PASSAGES_URL = "https://dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz"
 PASSAGES_TSV = RESULTS_DIR / "psgs_w100.tsv"
+PASSAGES_GZ = RESULTS_DIR / "psgs_w100.tsv.gz"
+PASSAGES_URL = "https://dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz"
 
 print("\n[1/4] Downloading DPR Wikipedia passages...")
 print("  Source: Facebook AI public files")
@@ -74,18 +72,23 @@ print("  This takes 10-20 mins depending on connection")
 t0 = time.time()
 
 if not PASSAGES_TSV.exists():
-    print("  Streaming download and decompression...")
-    print("  This saves ~5GB by not storing the GZ file.")
+    print("  Downloading with wget...")
+    ret = os.system(
+        f"wget -q --show-progress -O {PASSAGES_GZ} {PASSAGES_URL}"
+    )
+    if ret != 0:
+        raise RuntimeError("wget download failed")
+    print("  Download complete.")
 
-    with urllib.request.urlopen(PASSAGES_URL) as response:
-        with gzip.open(response, 'rt', encoding='utf-8') as gz_file:
-            with open(str(PASSAGES_TSV), 'w', encoding='utf-8') as out_file:
-                for i, line in enumerate(gz_file):
-                    out_file.write(line)
-                    if i % 1_000_000 == 0 and i > 0:
-                        size_gb = PASSAGES_TSV.stat().st_size / 1e9
-                        print(f"  Written {i:,} lines ({size_gb:.1f}GB so far)")
-    print("  Stream complete.")
+    print("  Extracting...")
+    ret = os.system(f"gunzip -f {PASSAGES_GZ}")
+    if ret != 0:
+        raise RuntimeError("gunzip failed")
+    print("  Extraction complete.")
+
+    # Verify
+    size_gb = PASSAGES_TSV.stat().st_size / 1e9
+    print(f"  TSV size: {size_gb:.1f}GB")
 else:
     print("  TSV already exists, skipping download.")
 
