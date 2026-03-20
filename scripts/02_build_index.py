@@ -37,7 +37,7 @@ INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 MODEL_NAME = "facebook/contriever-msmarco"
-BATCH_SIZE = 128
+BATCH_SIZE = 512
 SEED = 42
 PROGRESS_EVERY = 10_000
 
@@ -142,36 +142,45 @@ else:
     model = AutoModel.from_pretrained(MODEL_NAME).to(device)
     model.eval()
 
-    def mean_pooling(token_embeddings, attention_mask):
-        mask_expanded = attention_mask.unsqueeze(-1).float()
-        return (token_embeddings * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1).clamp(min=1e-9)
-
     all_embeddings = []
     t_encode = time.time()
 
-    for start in range(0, len(passages), BATCH_SIZE):
-        batch_texts = [p["text"] for p in passages[start: start + BATCH_SIZE]]
-        inputs = tokenizer(
-            batch_texts,
-            padding=True,
-            truncation=True,
-            max_length=256,
-            return_tensors="pt",
-        ).to(device)
+    with torch.no_grad():
+        for start in range(0, len(passages), BATCH_SIZE):
+            batch_texts = [p["text"] for p in passages[start:start+BATCH_SIZE]]
 
-        with torch.no_grad():
-            outputs = model(**inputs)
+            inputs = tokenizer(
+                batch_texts,
+                padding=True,
+                truncation=True,
+                max_length=128,
+                return_tensors="pt"
+            ).to(device)
 
-        embeddings = mean_pooling(outputs.last_hidden_state, inputs["attention_mask"])
-        all_embeddings.append(embeddings.cpu().float().numpy())
+            with torch.cuda.amp.autocast():
+                outputs = model(**inputs)
 
-        done = min(start + BATCH_SIZE, len(passages))
-        if done % PROGRESS_EVERY == 0 or done == len(passages):
-            elapsed = time.time() - t_encode
-            print(f"  Progress: {done:,}/{len(passages):,} passages encoded ({elapsed:.1f}s elapsed)")
+            # Mean pooling
+            attention_mask = inputs["attention_mask"]
+            token_embeddings = outputs.last_hidden_state
+            input_mask_expanded = attention_mask.unsqueeze(-1).float()
+            embeddings = (token_embeddings * input_mask_expanded).sum(1)
+            embeddings = embeddings / input_mask_expanded.sum(1).clamp(min=1e-9)
+
+            all_embeddings.append(embeddings.cpu().float().numpy())
+
+            done = min(start + BATCH_SIZE, len(passages))
+            if done % PROGRESS_EVERY == 0 or done == len(passages):
+                elapsed = time.time() - t_encode
+                rate = done / elapsed
+                remaining = (len(passages) - done) / rate / 3600
+                print(f"  Progress: {done:,}/{len(passages):,} "
+                      f"({elapsed:.1f}s, {rate:.0f} pass/sec, "
+                      f"~{remaining:.1f}h remaining)")
 
     embeddings_matrix = np.vstack(all_embeddings)
-    print(f"  Encoding complete. Shape: {embeddings_matrix.shape}  Time: {time.time()-t_encode:.1f}s")
+    print(f"  Encoding complete. Shape: {embeddings_matrix.shape} "
+          f"Time: {time.time()-t_encode:.1f}s")
 
     # Save checkpoint
     np.save(str(CHECKPOINT_FILE), embeddings_matrix)
