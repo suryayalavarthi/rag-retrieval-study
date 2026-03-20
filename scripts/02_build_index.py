@@ -61,12 +61,10 @@ print(f"Output dir    : {RESULTS_DIR}")
 print("=" * 60)
 
 # ── Step 1: Download and load DPR Wikipedia passages ─────────────────────────
-import urllib.request
 import gzip
-import shutil
+import urllib.request
 
 PASSAGES_URL = "https://dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz"
-PASSAGES_GZ = RESULTS_DIR / "psgs_w100.tsv.gz"
 PASSAGES_TSV = RESULTS_DIR / "psgs_w100.tsv"
 
 print("\n[1/4] Downloading DPR Wikipedia passages...")
@@ -76,23 +74,18 @@ print("  This takes 10-20 mins depending on connection")
 t0 = time.time()
 
 if not PASSAGES_TSV.exists():
-    if not PASSAGES_GZ.exists():
-        print("  Downloading psgs_w100.tsv.gz...")
-        urllib.request.urlretrieve(
-            PASSAGES_URL,
-            str(PASSAGES_GZ),
-            reporthook=lambda count, block, total: print(
-                f"  Downloaded {count*block/1e9:.1f}GB / {total/1e9:.1f}GB",
-                end="\r"
-            ) if count % 1000 == 0 else None
-        )
-        print("\n  Download complete.")
+    print("  Streaming download and decompression...")
+    print("  This saves ~5GB by not storing the GZ file.")
 
-    print("  Extracting TSV...")
-    with gzip.open(str(PASSAGES_GZ), 'rb') as f_in:
-        with open(str(PASSAGES_TSV), 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-    print("  Extraction complete.")
+    with urllib.request.urlopen(PASSAGES_URL) as response:
+        with gzip.open(response, 'rt', encoding='utf-8') as gz_file:
+            with open(str(PASSAGES_TSV), 'w', encoding='utf-8') as out_file:
+                for i, line in enumerate(gz_file):
+                    out_file.write(line)
+                    if i % 1_000_000 == 0 and i > 0:
+                        size_gb = PASSAGES_TSV.stat().st_size / 1e9
+                        print(f"  Written {i:,} lines ({size_gb:.1f}GB so far)")
+    print("  Stream complete.")
 else:
     print("  TSV already exists, skipping download.")
 
