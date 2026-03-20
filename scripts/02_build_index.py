@@ -106,6 +106,15 @@ with open(str(PASSAGES_TSV), 'r', encoding='utf-8') as f:
 
 print(f"  Loaded {len(passages):,} passages in {time.time()-t0:.1f}s")
 
+# Delete TSV immediately to free 13GB before encoding
+if PASSAGES_TSV.exists():
+    os.remove(str(PASSAGES_TSV))
+    print(f"  TSV deleted to free disk space for encoding.")
+    # Verify free space
+    import shutil
+    free_gb = shutil.disk_usage("/kaggle/working").free / 1e9
+    print(f"  Free disk space: {free_gb:.1f}GB")
+
 # ── Step 2: Save passage metadata (id + title only, no full text) ─────────────
 # Full passages.jsonl (~13GB) is NOT saved here — disk space on Kaggle is limited.
 # Full text is retrieved at query time from the TSV via passage ID in 03_generate_labels.py.
