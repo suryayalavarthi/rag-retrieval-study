@@ -1,10 +1,10 @@
 # RUN ON: KAGGLE
-# Reason: Encoding 21M DPR Wikipedia passages with Contriever requires GPU and significant memory.
+# Reason: Encoding 21M DPR Wikipedia passages requires GPU and significant memory.
 
 """
 scripts/02_build_index.py
 
-Builds a FAISS retrieval index using Contriever (facebook/contriever-msmarco)
+Builds a FAISS retrieval index using sentence-transformers/all-MiniLM-L6-v2
 embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
@@ -25,7 +25,6 @@ import numpy as np
 import faiss
 import torch
 from pathlib import Path
-from transformers import AutoTokenizer, AutoModel
 
 # ── Environment ──────────────────────────────────────────────────────────────
 BASE_DIR = os.environ.get("KAGGLE_WORKING_DIR", ".")
@@ -36,10 +35,10 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-MODEL_NAME = "facebook/contriever-msmarco"
-BATCH_SIZE = 512
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+BATCH_SIZE = 1024
 SEED = 42
-PROGRESS_EVERY = 10_000
+PROGRESS_EVERY = 500_000
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -51,9 +50,9 @@ print("Do not close the Kaggle tab.")
 print("Kaggle session expires 12 hours from open.")
 print("Make sure you have time to download outputs.")
 print("=" * 60)
-print("02_build_index.py — Build Contriever + FAISS Index")
+print("02_build_index.py — Build MiniLM + FAISS Index")
 print("=" * 60)
-print(f"Estimated runtime: 6-8 hours on Kaggle P100")
+print(f"Estimated runtime: 2-4 hours on Kaggle P100")
 print(f"Model         : {MODEL_NAME}")
 print(f"Corpus        : DPR Wikipedia (~21M passages)")
 print(f"Batch size    : {BATCH_SIZE}")
@@ -128,8 +127,9 @@ with open(str(META_FILE), "w") as f:
         f.write(json.dumps({"id": p["id"], "title": p["title"]}) + "\n")
 print(f"  Saved {len(passages):,} passage metadata entries")
 
-# ── Step 3: Encode passages with Contriever ───────────────────────────────────
+# ── Step 3: Encode passages with MiniLM ──────────────────────────────────────
 print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
+os.system("pip install -q sentence-transformers")
 
 CHECKPOINT_FILE = RESULTS_DIR / "embeddings_checkpoint.npy"
 
@@ -141,48 +141,37 @@ if CHECKPOINT_FILE.exists():
     embeddings_matrix = np.load(str(CHECKPOINT_FILE))
     print(f"  Checkpoint loaded: {embeddings_matrix.shape}")
 else:
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModel.from_pretrained(MODEL_NAME).to(device)
-    model.eval()
+    from sentence_transformers import SentenceTransformer
 
+    model = SentenceTransformer(MODEL_NAME, device=device)
+    model.half()  # FP16 for speed
+
+    texts = [p["text"] for p in passages]
     all_embeddings = []
     t_encode = time.time()
 
-    with torch.no_grad():
-        for start in range(0, len(passages), BATCH_SIZE):
-            batch_texts = [p["text"] for p in passages[start:start+BATCH_SIZE]]
+    for start in range(0, len(texts), BATCH_SIZE):
+        batch = texts[start:start+BATCH_SIZE]
+        emb = model.encode(
+            batch,
+            batch_size=BATCH_SIZE,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            normalize_embeddings=True,
+        )
+        all_embeddings.append(emb)
 
-            inputs = tokenizer(
-                batch_texts,
-                padding=True,
-                truncation=True,
-                max_length=128,
-                return_tensors="pt"
-            ).to(device)
-
-            with torch.cuda.amp.autocast():
-                outputs = model(**inputs)
-
-            # Mean pooling
-            attention_mask = inputs["attention_mask"]
-            token_embeddings = outputs.last_hidden_state
-            input_mask_expanded = attention_mask.unsqueeze(-1).float()
-            embeddings = (token_embeddings * input_mask_expanded).sum(1)
-            embeddings = embeddings / input_mask_expanded.sum(1).clamp(min=1e-9)
-
-            all_embeddings.append(embeddings.cpu().float().numpy())
-
-            done = min(start + BATCH_SIZE, len(passages))
-            if done % PROGRESS_EVERY == 0 or done == len(passages):
-                elapsed = time.time() - t_encode
-                rate = done / elapsed
-                remaining = (len(passages) - done) / rate / 3600
-                print(f"  Progress: {done:,}/{len(passages):,} "
-                      f"({elapsed:.1f}s, {rate:.0f} pass/sec, "
-                      f"~{remaining:.1f}h remaining)")
+        done = min(start+BATCH_SIZE, len(texts))
+        if done % PROGRESS_EVERY == 0 or done == len(texts):
+            elapsed = time.time() - t_encode
+            rate = done / elapsed
+            remaining = (len(texts) - done) / rate / 3600
+            print(f"  Progress: {done:,}/{len(texts):,} "
+                  f"({elapsed:.1f}s, {rate:.0f} pass/sec, "
+                  f"~{remaining:.1f}h remaining)")
 
     embeddings_matrix = np.vstack(all_embeddings)
-    print(f"  Encoding complete. Shape: {embeddings_matrix.shape} "
+    print(f"  Done. Shape: {embeddings_matrix.shape} "
           f"Time: {time.time()-t_encode:.1f}s")
 
     # Save checkpoint
