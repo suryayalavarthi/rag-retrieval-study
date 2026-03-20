@@ -45,6 +45,11 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 print("=" * 60)
+print("WARNING: This script takes 4-6 hours on Kaggle P100.")
+print("Do not close the Kaggle tab.")
+print("Kaggle session expires 12 hours from open.")
+print("Make sure you have time to download outputs.")
+print("=" * 60)
 print("02_build_index.py — Build Contriever + FAISS Index")
 print("=" * 60)
 print(f"Estimated runtime: 6-8 hours on Kaggle P100")
@@ -87,45 +92,54 @@ print(f"  Saved {len(passages):,} passages.")
 # ── Step 3: Encode passages with Contriever ───────────────────────────────────
 print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
 
+CHECKPOINT_FILE = RESULTS_DIR / "embeddings_checkpoint.npy"
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"  Device: {device}")
 
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModel.from_pretrained(MODEL_NAME).to(device)
-model.eval()
+if CHECKPOINT_FILE.exists():
+    print(f"  Loading checkpoint from {CHECKPOINT_FILE}")
+    embeddings_matrix = np.load(str(CHECKPOINT_FILE))
+    print(f"  Checkpoint loaded: {embeddings_matrix.shape}")
+else:
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModel.from_pretrained(MODEL_NAME).to(device)
+    model.eval()
 
+    def mean_pooling(token_embeddings, attention_mask):
+        mask_expanded = attention_mask.unsqueeze(-1).float()
+        return (token_embeddings * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1).clamp(min=1e-9)
 
-def mean_pooling(token_embeddings, attention_mask):
-    mask_expanded = attention_mask.unsqueeze(-1).float()
-    return (token_embeddings * mask_expanded).sum(dim=1) / mask_expanded.sum(dim=1).clamp(min=1e-9)
+    all_embeddings = []
+    t_encode = time.time()
 
+    for start in range(0, len(passages), BATCH_SIZE):
+        batch_texts = [p["text"] for p in passages[start: start + BATCH_SIZE]]
+        inputs = tokenizer(
+            batch_texts,
+            padding=True,
+            truncation=True,
+            max_length=256,
+            return_tensors="pt",
+        ).to(device)
 
-all_embeddings = []
-t_encode = time.time()
+        with torch.no_grad():
+            outputs = model(**inputs)
 
-for start in range(0, len(passages), BATCH_SIZE):
-    batch_texts = [p["text"] for p in passages[start: start + BATCH_SIZE]]
-    inputs = tokenizer(
-        batch_texts,
-        padding=True,
-        truncation=True,
-        max_length=256,
-        return_tensors="pt",
-    ).to(device)
+        embeddings = mean_pooling(outputs.last_hidden_state, inputs["attention_mask"])
+        all_embeddings.append(embeddings.cpu().float().numpy())
 
-    with torch.no_grad():
-        outputs = model(**inputs)
+        done = min(start + BATCH_SIZE, len(passages))
+        if done % PROGRESS_EVERY == 0 or done == len(passages):
+            elapsed = time.time() - t_encode
+            print(f"  Progress: {done:,}/{len(passages):,} passages encoded ({elapsed:.1f}s elapsed)")
 
-    embeddings = mean_pooling(outputs.last_hidden_state, inputs["attention_mask"])
-    all_embeddings.append(embeddings.cpu().float().numpy())
+    embeddings_matrix = np.vstack(all_embeddings)
+    print(f"  Encoding complete. Shape: {embeddings_matrix.shape}  Time: {time.time()-t_encode:.1f}s")
 
-    done = min(start + BATCH_SIZE, len(passages))
-    if done % PROGRESS_EVERY == 0 or done == len(passages):
-        elapsed = time.time() - t_encode
-        print(f"  Progress: {done:,}/{len(passages):,} passages encoded ({elapsed:.1f}s elapsed)")
-
-embeddings_matrix = np.vstack(all_embeddings)
-print(f"  Encoding complete. Shape: {embeddings_matrix.shape}  Time: {time.time()-t_encode:.1f}s")
+    # Save checkpoint
+    np.save(str(CHECKPOINT_FILE), embeddings_matrix)
+    print(f"  Checkpoint saved to {CHECKPOINT_FILE}")
 
 # ── Step 4: Build and save FAISS index ───────────────────────────────────────
 print(f"\n[4/4] Building IVFPQ FAISS index...")
@@ -138,10 +152,12 @@ m = 96
 quantizer = faiss.IndexFlatIP(dim)
 index = faiss.IndexIVFPQ(quantizer, dim, nlist, m, 8)
 
-print(f"  Training index on {min(100000, len(embeddings_matrix)):,} vectors...")
-train_vectors = embeddings_matrix[:100000]
-faiss.normalize_L2(train_vectors)
-index.train(train_vectors)
+n_train = min(500_000, len(embeddings_matrix))
+train_sample = embeddings_matrix[:n_train].copy()
+faiss.normalize_L2(train_sample)
+print(f"  Training IVF quantizer on {n_train:,} vectors...")
+index.train(train_sample)
+print(f"  Training complete.")
 
 faiss.normalize_L2(embeddings_matrix)
 index.add(embeddings_matrix)
