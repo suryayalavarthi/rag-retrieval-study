@@ -176,6 +176,7 @@ else:
                   f"~{remaining:.1f}h remaining)")
 
     embeddings_matrix = np.vstack(all_embeddings)
+    embeddings_matrix = embeddings_matrix.astype(np.float32)
     print(f"  Done. Shape: {embeddings_matrix.shape} "
           f"Time: {time.time()-t_encode:.1f}s")
 
