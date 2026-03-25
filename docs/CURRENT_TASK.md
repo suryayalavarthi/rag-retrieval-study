@@ -5,32 +5,27 @@
 ---
 
 ## Current Task
-### What I am building today
-WAITING — Schedule a dedicated Kaggle session.
+### Status
+TEST MODE passed successfully.
+100k passages indexed in 7.6 minutes.
+694 pass/sec on Kaggle P100 with MiniLM.
+Pipeline confirmed working end to end.
 
 ### Next session task
-Run scripts/02_build_index.py with full DPR corpus
-and IVFPQ compressed index on Kaggle.
+Run full 21M passage index build on Kaggle.
+Requires 10+ uninterrupted hours.
 
 ### RUN ON: KAGGLE
-Reason: 21M passages, ~13GB download,
-6-8 hours encoding, GPU required.
+### Time required: ~9.5 hours total
+- 25 mins download
+- 8.4 hours encoding
+- 45 mins FAISS build
+- 30 mins download results before session ends
 
-### Prerequisites before starting
-1. Fresh Kaggle session with full GPU quota
-2. P100 GPU selected
-3. Internet ON
-4. At least 8 hours available
-5. Do not start unless you can monitor it
+### Do not start unless you have 10+ hours available
 
-### What done means
-- 21M DPR passages indexed with Contriever
-- IVFPQ compressed index saved (~10GB)
-- passages.jsonl saved separately
-- Both files downloaded before session ends
-- Index size should be under 15GB
-
-### Storage note
-passages.jsonl is too large for Kaggle working dir.
-Save it to Kaggle Datasets instead.
-Only index.faiss goes to /kaggle/working/results/
+### Prerequisites
+- Fresh Kaggle session
+- P100 GPU
+- Internet ON
+- No TEST_MODE environment variable set

@@ -4,6 +4,267 @@
 
 ---
 
+## Session — 2026-03-25 (Session 4)
+### What was built
+- Updated docs/CURRENT_TASK.md to reflect TEST MODE success and document full 21M run plan
+
+### Files changed
+- `docs/CURRENT_TASK.md` — replaced content with TEST MODE results (100k passages, 7.6 min, 694 pass/sec) and full Kaggle run plan (~9.5 hours total)
+
+### What works
+- TEST MODE confirmed: 100k passages indexed in 7.6 minutes, 694 pass/sec on Kaggle P100
+- scripts/02_build_index.py is fully ready for full 21M run (no TEST_MODE env var)
+
+### What is broken or incomplete
+- scripts/03_generate_labels.py still references passages.jsonl which no longer exists — needs fix before label run (fetch full text from TSV at query time)
+
+### Next session should start with
+Run full 21M passage index build on Kaggle P100. Requires 10+ uninterrupted hours. Do NOT set TEST_MODE. Prerequisites: fresh session, P100 GPU, Internet ON.
+
+---
+
+## Session — 2026-03-25 (Session 3)
+### What was built
+- Fixed FAISS float32 type error in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — added .astype(np.float32) after np.vstack to cast FP16 MiniLM output to float32 before FAISS normalize_L2
+
+### What works
+- FAISS normalize_L2 and index.train() both require float32 — now guaranteed
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Run TEST_MODE=true on Kaggle to validate full pipeline.
+
+---
+
+## Session — 2026-03-25 (Session 2)
+### What was built
+- Added TEST_MODE flag to 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — TEST_MODE env var added; if true, passages trimmed to 100K after loading; printed confirmation
+
+### What works
+- Run with TEST_MODE=true python scripts/02_build_index.py to validate pipeline on 100K passages before full run
+- Default is false — full 21M passages unchanged
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Run TEST_MODE=true on Kaggle first to validate end-to-end, then full run.
+
+---
+
+## Session — 2026-03-25
+### What was built
+- Fixed IVFPQ m parameter for MiniLM dimensions
+
+### Files changed
+- `scripts/02_build_index.py` — m changed from 96 to 48 (384/48=8 bytes per subvector, standard for 384-dim)
+
+### What works
+- IVFPQ config now correct for MiniLM: dim=384, nlist=4096, m=48, nbits=8
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Schedule Kaggle P100 session and run 02_build_index.py.
+Script is now fully ready.
+
+---
+
+## Session — 2026-03-20 (Session 9)
+### What was built
+- Switched encoder from Contriever to MiniLM in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — MODEL_NAME → sentence-transformers/all-MiniLM-L6-v2; BATCH_SIZE 512→1024; PROGRESS_EVERY 10K→500K; encoding loop replaced with SentenceTransformer.encode(); model.half() for FP16; pip install sentence-transformers added; transformers imports removed; runtime estimate updated to 2-4 hours
+
+### What works
+- MiniLM expected throughput: ~1500-2000 pass/sec on P100 (vs 273 for Contriever)
+- normalize_embeddings=True built into encode() — no manual normalization needed
+- Checkpoint save/load unchanged
+
+### What is broken or incomplete
+- FAISS IVFPQ m=96 assumes dim=768 (Contriever). MiniLM dim=384 — m=96 may be invalid.
+  MiniLM produces 384-dim embeddings. IVFPQ requires m to divide dim evenly.
+  384 / 96 = 4 bytes per subvector — this is valid but worth verifying.
+
+### Next session should start with
+Verify IVFPQ m=96 is valid for dim=384 before running.
+Then schedule Kaggle P100 session.
+
+---
+
+## Session — 2026-03-20 (Session 8)
+### What was built
+- Fixed download hang in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — replaced streaming urllib decompression with wget download + gunzip; GZ deleted by gunzip -f automatically after extraction; raises RuntimeError on failure
+
+### What works
+- wget is much faster and more reliable than urllib on Kaggle
+- gunzip -f overwrites existing TSV if present and deletes GZ after extraction
+- TSV size printed after extraction to verify
+
+### What is broken or incomplete
+- Note: GZ (~3.5GB) + TSV (~13GB) coexist briefly during gunzip — peak ~16.5GB, still within 20GB limit
+
+### Next session should start with
+Run 02_build_index.py on Kaggle P100.
+
+---
+
+## Session — 2026-03-20 (Session 7)
+### What was built
+- Fixed encoding speed in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — BATCH_SIZE 128→512; max_length 256→128; added torch.cuda.amp.autocast(); moved torch.no_grad() outside loop; progress now shows pass/sec and hours remaining; removed separate mean_pooling function (inlined)
+
+### What works
+- Expected throughput: 2000-3000 pass/sec on P100 (was 165)
+- autocast uses FP16 on GPU for ~2x speed boost
+- Larger batch size better utilizes GPU memory bandwidth
+
+### What is broken or incomplete
+- Not yet run on Kaggle with these fixes
+
+### Next session should start with
+Schedule Kaggle P100 session and run 02_build_index.py.
+Watch first progress line to confirm pass/sec is 2000+.
+
+---
+
+## Session — 2026-03-20 (Session 6)
+### What was built
+- Added early TSV deletion in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — TSV deleted immediately after passages loaded into memory, before encoding; disk_usage check printed after deletion
+
+### What works
+- Peak disk usage now:
+  - During download: ~13GB (TSV only)
+  - During encoding: ~10GB (embeddings in memory, index building)
+  - Never both at same time
+- Free space printed so we can verify on Kaggle
+
+### What is broken or incomplete
+- Script still not run on Kaggle
+
+### Next session should start with
+Schedule Kaggle P100 session and run 02_build_index.py.
+
+---
+
+## Session — 2026-03-20 (Session 5)
+### What was built
+- Fixed GZ+TSV disk overflow in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — replaced download+extract with streaming decompression; GZ never written to disk; saves ~5GB; shutil and PASSAGES_GZ removed
+
+### What works
+- Stream: urlopen → gzip.open(response) → write TSV directly
+- Peak disk during download: only TSV (~13GB), no GZ accumulation
+- TSV skip-if-exists still works for resume
+
+### What is broken or incomplete
+- Script still not run on Kaggle
+
+### Next session should start with
+Schedule Kaggle P100 session and run 02_build_index.py.
+
+---
+
+## Session — 2026-03-20 (Session 4)
+### What was built
+- Fixed disk space issue in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — Step 2 now saves passages_meta.jsonl (id+title only) instead of full passages.jsonl; TSV and GZ deleted after index build; PASSAGES_FILE variable removed; docstring updated
+
+### What works
+- Disk usage after run: ~10GB index + small metadata file (vs previous ~26GB+)
+- TSV and GZ cleaned up automatically after FAISS index is built
+- Full passage text will be fetched at query time via passage ID
+
+### What is broken or incomplete
+- 03_generate_labels.py still references passages.jsonl for full text — needs updating before label run
+
+### Next session should start with
+Update 03_generate_labels.py to fetch passage text from TSV at query time instead of loading passages.jsonl.
+Then schedule Kaggle P100 session for index build.
+
+---
+
+## Session — 2026-03-20 (Session 3)
+### What was built
+- Fixed DPR corpus loading in 02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — replaced HuggingFace dataset load with direct download from dl.fbaipublicfiles.com/dpr/wikipedia_split/psgs_w100.tsv.gz; removed datasets import; TSV skip-if-exists logic included
+
+### What works
+- Downloads 3.5GB gz, extracts to ~13GB TSV, loads all 21M passages
+- Skips download/extraction if TSV already exists (resume-safe)
+- No HuggingFace trust_remote_code dependency
+
+### What is broken or incomplete
+- Script still not run on Kaggle
+
+### Next session should start with
+Schedule 8-hour Kaggle P100 session and run 02_build_index.py.
+
+---
+
+## Session — 2026-03-20 (Session 2)
+### What was built
+- Added checkpoint save/load and timer warning to 02_build_index.py
+- Fixed FAISS training sample size
+
+### Files changed
+- `scripts/02_build_index.py` — added: timer warning at start; checkpoint save after encoding to embeddings_checkpoint.npy; checkpoint load if file exists (skip re-encoding); FAISS training sample increased to 500K vectors with .copy() to avoid in-place normalization issue
+
+### What works
+- If Kaggle session crashes after encoding, script can resume from checkpoint
+- FAISS IVF quantizer now trains on 500K vectors (better than 100K)
+- Warning banner reminds user not to close tab
+
+### What is broken or incomplete
+- Script still not run on Kaggle
+
+### Next session should start with
+Schedule 8-hour Kaggle P100 session and run 02_build_index.py.
+
+---
+
+## Session — 2026-03-20
+### What was built
+- Corrected misleading index status in MASTER_CONTEXT.md
+
+### Files changed
+- `docs/MASTER_CONTEXT.md` — index status changed from [x] DONE to [ ] with clarification: prototype only, full DPR run still required
+
+### What works
+- Status now accurately reflects reality
+
+### What is broken or incomplete
+- Nothing new
+
+### Next session should start with
+Schedule Kaggle P100 session for full DPR index build.
+
+---
+
 ## Session end — March 19 2026
 ### What was completed
 - Pilot run revealed corpus coverage problem
