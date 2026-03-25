@@ -39,6 +39,7 @@ MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 BATCH_SIZE = 1024
 SEED = 42
 PROGRESS_EVERY = 500_000
+TEST_MODE = os.environ.get("TEST_MODE", "false").lower() == "true"
 
 random.seed(SEED)
 np.random.seed(SEED)
@@ -107,6 +108,10 @@ with open(str(PASSAGES_TSV), 'r', encoding='utf-8') as f:
             print(f"  Loaded {i+1:,} passages...")
 
 print(f"  Loaded {len(passages):,} passages in {time.time()-t0:.1f}s")
+
+if TEST_MODE:
+    passages = passages[:100_000]
+    print(f"  TEST MODE: limited to {len(passages):,} passages")
 
 # Delete TSV immediately to free 13GB before encoding
 if PASSAGES_TSV.exists():
