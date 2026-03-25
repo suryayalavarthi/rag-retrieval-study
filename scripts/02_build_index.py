@@ -184,7 +184,7 @@ t_faiss = time.time()
 
 dim = embeddings_matrix.shape[1]
 nlist = 4096
-m = 96
+m = 48
 
 quantizer = faiss.IndexFlatIP(dim)
 index = faiss.IndexIVFPQ(quantizer, dim, nlist, m, 8)
