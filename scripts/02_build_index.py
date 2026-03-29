@@ -5,7 +5,7 @@
 scripts/02_build_index.py
 
 Builds a FAISS retrieval index using sentence-transformers/all-MiniLM-L6-v2
-embeddings over the full DPR Wikipedia passage corpus (~21M passages).
+(MiniLM) embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
   BASE_DIR/results/faiss_index/index.faiss  — IVFPQ compressed FAISS index
@@ -137,25 +137,32 @@ print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
 os.system("pip install -q sentence-transformers")
 
 CHECKPOINT_FILE = RESULTS_DIR / "embeddings_checkpoint.npy"
+CHECKPOINT_OFFSET_FILE = RESULTS_DIR / "checkpoint_offset.txt"
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"  Device: {device}")
 
-if CHECKPOINT_FILE.exists():
-    print(f"  Loading checkpoint from {CHECKPOINT_FILE}")
-    embeddings_matrix = np.load(str(CHECKPOINT_FILE))
-    print(f"  Checkpoint loaded: {embeddings_matrix.shape}")
+# Check if checkpoint exists and resume
+start_idx = 0
+if CHECKPOINT_FILE.exists() and CHECKPOINT_OFFSET_FILE.exists():
+    with open(CHECKPOINT_OFFSET_FILE) as f:
+        start_idx = int(f.read().strip())
+    existing = np.load(str(CHECKPOINT_FILE))
+    print(f"  Resuming from passage {start_idx:,}")
+    all_embeddings = [existing]
 else:
+    all_embeddings = []
+
+if start_idx < len(passages):
     from sentence_transformers import SentenceTransformer
 
     model = SentenceTransformer(MODEL_NAME, device=device)
     model.half()  # FP16 for speed
 
     texts = [p["text"] for p in passages]
-    all_embeddings = []
     t_encode = time.time()
 
-    for start in range(0, len(texts), BATCH_SIZE):
+    for start in range(start_idx, len(texts), BATCH_SIZE):
         batch = texts[start:start+BATCH_SIZE]
         emb = model.encode(
             batch,
@@ -169,20 +176,35 @@ else:
         done = min(start+BATCH_SIZE, len(texts))
         if done % PROGRESS_EVERY == 0 or done == len(texts):
             elapsed = time.time() - t_encode
-            rate = done / elapsed
+            rate = (done - start_idx) / elapsed
             remaining = (len(texts) - done) / rate / 3600
             print(f"  Progress: {done:,}/{len(texts):,} "
                   f"({elapsed:.1f}s, {rate:.0f} pass/sec, "
                   f"~{remaining:.1f}h remaining)")
+
+        # Save checkpoint every 1M passages
+        if done % 1_000_000 == 0:
+            checkpoint_data = np.vstack(all_embeddings)
+            np.save(str(CHECKPOINT_FILE), checkpoint_data)
+            with open(CHECKPOINT_OFFSET_FILE, "w") as f:
+                f.write(str(done))
+            print(f"  Checkpoint saved at {done:,} passages.")
 
     embeddings_matrix = np.vstack(all_embeddings)
     embeddings_matrix = embeddings_matrix.astype(np.float32)
     print(f"  Done. Shape: {embeddings_matrix.shape} "
           f"Time: {time.time()-t_encode:.1f}s")
 
-    # Save checkpoint
+    # Save final checkpoint
     np.save(str(CHECKPOINT_FILE), embeddings_matrix)
-    print(f"  Checkpoint saved to {CHECKPOINT_FILE}")
+    with open(CHECKPOINT_OFFSET_FILE, "w") as f:
+        f.write(str(len(texts)))
+    print(f"  Final checkpoint saved to {CHECKPOINT_FILE}")
+else:
+    print(f"  Checkpoint complete — loading from {CHECKPOINT_FILE}")
+    embeddings_matrix = np.load(str(CHECKPOINT_FILE))
+    embeddings_matrix = embeddings_matrix.astype(np.float32)
+    print(f"  Loaded: {embeddings_matrix.shape}")
 
 # ── Step 4: Build and save FAISS index ───────────────────────────────────────
 print(f"\n[4/4] Building IVFPQ FAISS index...")
