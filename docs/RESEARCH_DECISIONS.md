@@ -97,3 +97,15 @@ at recall@20, consistent with prior work."
 - Corpus reduction to 5-10M: not defensible
 - Colab Pro: adds cost for solvable problem
 - Google Drive sharding: fragile infrastructure
+
+---
+
+## Decision: MiniLM over Contriever for encoding
+**Date:** March 2026
+**Decision:** Use sentence-transformers/all-MiniLM-L6-v2 instead of facebook/contriever-msmarco
+
+**Reason:** Contriever encodes at ~165 pass/sec on Kaggle P100 — 35 hours for 21M passages, which exceeds the 12-hour Kaggle session limit. MiniLM encodes at ~694 pass/sec — 8.4 hours, which fits within Kaggle limits.
+
+**Quality tradeoff:** MiniLM produces 384-dim embeddings vs Contriever 768-dim. For a measurement study measuring when retrieval helps vs hurts, relative retrieval signal matters more than absolute quality. MiniLM retrieval quality is sufficient for this purpose.
+
+**Paper methodology note:** "We use all-MiniLM-L6-v2 for passage encoding due to computational constraints. While Contriever achieves higher absolute retrieval quality, MiniLM provides sufficient signal for our measurement study which focuses on relative retrieval benefit across query types."
