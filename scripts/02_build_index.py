@@ -4,8 +4,8 @@
 """
 scripts/02_build_index.py
 
-Builds a FAISS retrieval index using sentence-transformers/all-MiniLM-L6-v2
-(MiniLM) embeddings over the full DPR Wikipedia passage corpus (~21M passages).
+Builds a FAISS retrieval index using facebook/contriever-msmarco
+embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
   BASE_DIR/results/faiss_index/index.faiss  — IVFPQ compressed FAISS index
@@ -35,7 +35,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+MODEL_NAME = "facebook/contriever-msmarco"
 BATCH_SIZE = 1024
 SEED = 42
 PROGRESS_EVERY = 500_000
@@ -51,7 +51,7 @@ print("Do not close the Kaggle tab.")
 print("Kaggle session expires 12 hours from open.")
 print("Make sure you have time to download outputs.")
 print("=" * 60)
-print("02_build_index.py — Build MiniLM + FAISS Index")
+print("02_build_index.py — Build Contriever + FAISS Index")
 print("=" * 60)
 print(f"Estimated runtime: 2-4 hours on Kaggle P100")
 print(f"Model         : {MODEL_NAME}")
@@ -132,15 +132,19 @@ with open(str(META_FILE), "w") as f:
         f.write(json.dumps({"id": p["id"], "title": p["title"]}) + "\n")
 print(f"  Saved {len(passages):,} passage metadata entries")
 
-# ── Step 3: Encode passages with MiniLM ──────────────────────────────────────
+# ── Step 3: Encode passages with Contriever ──────────────────────────────────
 print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
-os.system("pip install -q sentence-transformers")
 
 CHECKPOINT_FILE = RESULTS_DIR / "embeddings_checkpoint.npy"
 CHECKPOINT_OFFSET_FILE = RESULTS_DIR / "checkpoint_offset.txt"
 
+from transformers import AutoTokenizer, AutoModel
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"  Device: {device}")
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+model = AutoModel.from_pretrained(MODEL_NAME).to(device)
+model.eval()
 
 # Check if checkpoint exists and resume
 start_idx = 0
@@ -154,24 +158,32 @@ else:
     all_embeddings = []
 
 if start_idx < len(passages):
-    from sentence_transformers import SentenceTransformer
-
-    model = SentenceTransformer(MODEL_NAME, device=device)
-    model.half()  # FP16 for speed
-
     texts = [p["text"] for p in passages]
     t_encode = time.time()
 
     for start in range(start_idx, len(texts), BATCH_SIZE):
-        batch = texts[start:start+BATCH_SIZE]
-        emb = model.encode(
-            batch,
-            batch_size=BATCH_SIZE,
-            show_progress_bar=False,
-            convert_to_numpy=True,
-            normalize_embeddings=True,
-        )
-        all_embeddings.append(emb)
+        chunk_texts = texts[start:start+BATCH_SIZE]
+
+        inputs = tokenizer(
+            chunk_texts,
+            padding=True,
+            truncation=True,
+            max_length=128,
+            return_tensors="pt"
+        ).to(device)
+
+        with torch.no_grad():
+            with torch.amp.autocast('cuda'):
+                outputs = model(**inputs)
+
+        attention_mask = inputs["attention_mask"]
+        token_embeddings = outputs.last_hidden_state
+        input_mask_expanded = attention_mask.unsqueeze(-1).float()
+        embeddings = (token_embeddings * input_mask_expanded).sum(1)
+        embeddings = embeddings / input_mask_expanded.sum(1).clamp(min=1e-9)
+        embeddings = embeddings.cpu().float().numpy().astype(np.float32)
+
+        all_embeddings.append(embeddings)
 
         done = min(start+BATCH_SIZE, len(texts))
         if done % PROGRESS_EVERY == 0 or done == len(texts):
@@ -212,7 +224,7 @@ t_faiss = time.time()
 
 dim = embeddings_matrix.shape[1]
 nlist = 4096
-m = 48
+m = 96
 
 quantizer = faiss.IndexFlatIP(dim)
 index = faiss.IndexIVFPQ(quantizer, dim, nlist, m, 8)

@@ -100,12 +100,11 @@ at recall@20, consistent with prior work."
 
 ---
 
-## Decision: MiniLM over Contriever for encoding
+## Decision: MiniLM over Contriever for encoding — REVERSED
 **Date:** March 2026
-**Decision:** Use sentence-transformers/all-MiniLM-L6-v2 instead of facebook/contriever-msmarco
+**Decision:** ~~Use sentence-transformers/all-MiniLM-L6-v2 instead of facebook/contriever-msmarco~~
+**Status: REVERSED — reverted to Contriever**
 
-**Reason:** Contriever encodes at ~165 pass/sec on Kaggle P100 — 35 hours for 21M passages, which exceeds the 12-hour Kaggle session limit. MiniLM encodes at ~694 pass/sec — 8.4 hours, which fits within Kaggle limits.
+**Original reason:** Contriever encodes at ~165 pass/sec on Kaggle P100 — 35 hours for 21M passages, exceeding the 12-hour Kaggle session limit. MiniLM encodes at ~694 pass/sec — 8.4 hours, fitting within limits.
 
-**Quality tradeoff:** MiniLM produces 384-dim embeddings vs Contriever 768-dim. For a measurement study measuring when retrieval helps vs hurts, relative retrieval signal matters more than absolute quality. MiniLM retrieval quality is sufficient for this purpose.
-
-**Paper methodology note:** "We use all-MiniLM-L6-v2 for passage encoding due to computational constraints. While Contriever achieves higher absolute retrieval quality, MiniLM provides sufficient signal for our measurement study which focuses on relative retrieval benefit across query types."
+**Reversal reason:** Using Google Cloud A100 which handles 21M passages at 2500+ pass/sec within budget. Contriever's 768-dim embeddings and higher retrieval quality are preferred for the measurement study. MiniLM workaround no longer needed.

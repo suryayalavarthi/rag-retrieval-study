@@ -39,7 +39,7 @@ Systematic empirical measurement across NQ, HotpotQA, MuSiQue:
 4. Can a lightweight scorer (DeBERTa) predict retrieval benefit before generation?
 
 ## Tech Stack
-- Retriever: MiniLM-L6-v2 + FAISS IVFPQ (measurement instrument)
+- Retriever: Contriever + FAISS IVFPQ (measurement instrument)
 - Scorer: DeBERTa-v3-base (measurement tool, not the contribution)
 - Models: GPT-4o (strong), GPT-4o-mini (weak)
 - Datasets: Natural Questions, HotpotQA, MuSiQue
