@@ -4,6 +4,27 @@
 
 ---
 
+## Session — 2026-07-03 (Session 3)
+### What was built
+- Rewrote CLAUDE.md Project Summary section to match the finalized measurement-study framing (title, type, goal, target venue, arXiv date, what-we-measure, what-we-do-NOT-claim, stack, compute).
+- Added new "Your Role (Claude Code)" section with 5 permanent behavioral rules.
+- Added "PERMANENT RULE #0" at the top of the Rules section: stop and flag the user if any old systems-paper framing (Retrieve Assess Route, DeBERTa routing, 40-70% cost reduction, second verifier) appears anywhere.
+
+### Files changed
+- `CLAUDE.md` — Project Summary replaced; "What This Paper Claims" section folded into it; new "Your Role (Claude Code)" section added; PERMANENT RULE #0 added as first rule (backed up to `.bak`)
+
+### What works
+- CLAUDE.md now states the measurement-study identity and non-claims in one place, with an explicit trip-wire rule against old framing resurfacing.
+
+### What is broken or incomplete
+- Note: the request referenced an existing "Your role" section mentioning "second verifier" / "DeBERTa routing" to replace — no such section existed in CLAUDE.md prior to this session (verified via grep). Treated as a net-new addition instead of a replacement; flagged to user.
+- Known outstanding items from prior sessions remain untouched (out of scope for this task): `claude ai resources/Research_Plan_Cost_Aware_RAG.docx` and the "second verifier" open question in `docs/MASTER_CONTEXT.md`.
+
+### Next session should start with
+Decide whether to clean up `Research_Plan_Cost_Aware_RAG.docx` and resolve the "second verifier" open question in MASTER_CONTEXT.md, then continue with the local M1 Pro index build.
+
+---
+
 ## Session — 2026-07-03 (Session 2)
 ### What was built
 - Searched entire project for remaining old systems-paper framing ("Retrieve, Assess, Route", "40-70% cost reduction", "DeBERTa sufficiency scorer", "second verifier", "cascaded verification") and identified two files where it was primary content rather than a historical/negative reference.
