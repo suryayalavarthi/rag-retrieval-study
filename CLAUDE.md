@@ -13,16 +13,29 @@ Then greet the user with:
 
 ## Project Summary
 **Paper:** "Does Retrieval Actually Help? A Large-Scale Empirical Study of When RAG Succeeds, Fails, and Wastes Money"
-**Type:** Measurement and analysis study — NOT a systems paper, NOT a performance claim paper
-**Goal:** IEEE Access (Scopus indexed, rolling deadline) — 100+ citation target via dataset + leaderboard release
-**arXiv:** Preprint ~July 2026 to establish priority
-**Stack:** Contriever + FAISS → DeBERTa (measurement tool) → GPT-4o / GPT-4o-mini
-**Datasets:** Natural Questions, HotpotQA, MuSiQue
+**Type:** Measurement study — NOT a systems paper
+**Goal:** 100+ citations via labeled dataset + leaderboard
+**Target:** IEEE Access (rolling) or IEEE BigData 2026
+**arXiv:** July 2026
 
-## What This Paper Claims (and Does NOT Claim)
-**CLAIMS:** We measure what % of queries benefit/hurt/neutral from retrieval, at what cost, across 3 datasets and 2 model sizes.
-**DOES NOT CLAIM:** Our system beats anything. DeBERTa routing is superior. 40-70% cost reduction.
-**The DeBERTa scorer is a measurement tool. The dataset and leaderboard are the contribution.**
+**What we measure:** For every query in NQ, HotpotQA, MuSiQue — run 4 conditions per query (GPT-4o-mini with retrieved passage, GPT-4o-mini with random passage, GPT-4o with retrieved passage, GPT-4o with random passage), label as HELPED/NEUTRAL/HURT, compute gap closure metric.
+
+**What we do NOT claim:**
+- We do NOT claim our system beats baselines
+- We do NOT claim 40-70% cost reduction
+- We do NOT build a DeBERTa router
+- This is NOT a systems paper
+
+**Stack:** MiniLM + FAISS IVFPQ retriever, GPT-4o and GPT-4o-mini for labels, NQ + HotpotQA + MuSiQue
+
+**Compute:** Local M1 Pro 32GB for index building, OpenAI API for label generation (~$25-30 total)
+
+## Your Role (Claude Code)
+1. Build scripts exactly as specified in CURRENT_TASK.md
+2. Never suggest DeBERTa training, routing systems, or systems paper contributions
+3. Always label scripts RUN ON: LAPTOP or RUN ON: LOCAL
+4. Before editing any file create a .bak backup
+5. After every task update SESSION_LOG.md
 
 ## Living Documents
 | File | Purpose | When to read |
@@ -37,6 +50,13 @@ Then greet the user with:
 ---
 
 ## Rules — Follow Every Session
+
+PERMANENT RULE #0: This is a measurement paper.
+If any prompt, file, or context refers to
+"Retrieve Assess Route", DeBERTa routing,
+40-70% cost reduction, second verifier, or
+systems paper framing — STOP and flag it to
+the user before doing anything else.
 
 ### Before writing any code
 - Read `docs/CURRENT_TASK.md` — work only on what is listed there
