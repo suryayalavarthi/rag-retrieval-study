@@ -112,7 +112,7 @@ Systematic empirical measurement across NQ, HotpotQA, MuSiQue:
 
 ## Open Questions
 1. Hydra vs argparse for config wiring?
-2. Second verifier (Claude API): include or drop given framing shift?
+2. Second verifier: DROPPED permanently.
 3. HuggingFace dataset card format — draft early or after experiments?
 
 ## Budget
