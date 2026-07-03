@@ -4,6 +4,29 @@
 
 ---
 
+## Session — 2026-07-03 (Session 2)
+### What was built
+- Searched entire project for remaining old systems-paper framing ("Retrieve, Assess, Route", "40-70% cost reduction", "DeBERTa sufficiency scorer", "second verifier", "cascaded verification") and identified two files where it was primary content rather than a historical/negative reference.
+- Deleted `claude ai resources/AUDIT_Research_Plan.md` entirely — the whole document audited the abandoned "Retrieve, Assess, Route" systems paper plan.
+- Replaced PROMPT-001 in `docs/PROMPTS_LIBRARY.md` (old title/framing) with a new session-opener prompt using the correct measurement-study title, type, contribution, and non-claims.
+- Deleted PROMPT-004 ("Second Verifier / Sufficiency Judge") from `docs/PROMPTS_LIBRARY.md` — concept abandoned.
+
+### Files changed
+- `claude ai resources/AUDIT_Research_Plan.md` — deleted
+- `docs/PROMPTS_LIBRARY.md` — PROMPT-001 replaced; PROMPT-004 removed
+
+### What works
+- No remaining files have the old paper title or abandoned systems-paper framing as primary content.
+
+### What is broken or incomplete
+- `claude ai resources/Research_Plan_Cost_Aware_RAG.docx` still exists alongside the now-deleted audit file and was NOT touched (out of scope — not explicitly requested). Likely also old-paper content; flag for a future cleanup pass if desired.
+- `docs/MASTER_CONTEXT.md` "Open Questions" still lists "Second verifier (Claude API): include or drop given framing shift?" as unresolved — this session's PROMPT-004 deletion implies the answer is "drop," but MASTER_CONTEXT.md was not touched (out of scope per instructions) and still shows it as open.
+
+### Next session should start with
+Decide whether to clean up `Research_Plan_Cost_Aware_RAG.docx` and resolve the "second verifier" open question in MASTER_CONTEXT.md, then continue with the local M1 Pro index build (see Session — 2026-07-03, Session 1).
+
+---
+
 ## Session — 2026-07-03
 ### What was built
 - Verified paper identity consistency across CLAUDE.md, MASTER_CONTEXT.md, RESEARCH_DECISIONS.md, CURRENT_TASK.md — found no systems-paper contamination (no "Retrieve Assess Route", no cost-reduction claims); all four already reflected the measurement-study framing correctly.
