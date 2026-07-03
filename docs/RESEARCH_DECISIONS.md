@@ -108,3 +108,12 @@ at recall@20, consistent with prior work."
 **Original reason:** Contriever encodes at ~165 pass/sec on Kaggle P100 — 35 hours for 21M passages, exceeding the 12-hour Kaggle session limit. MiniLM encodes at ~694 pass/sec — 8.4 hours, fitting within limits.
 
 **Reversal reason:** Using Google Cloud A100 which handles 21M passages at 2500+ pass/sec within budget. Contriever's 768-dim embeddings and higher retrieval quality are preferred for the measurement study. MiniLM workaround no longer needed.
+
+---
+
+## Decision: Compute Target and Encoder — SECOND REVERSAL (back to MiniLM, Local M1 Pro)
+**Date:** 2026-07-03
+**Decision:** Move index build off Google Cloud A100 back to local M1 Pro (32GB RAM), using MiniLM (sentence-transformers/all-MiniLM-L6-v2) instead of Contriever.
+**Why:** User directive to run locally rather than on cloud GPU. M1 Pro 32GB handles the streaming/batched encoding approach without a GPU; MiniLM's lower compute cost per passage (384-dim, smaller model) makes CPU-class local encoding of 21M passages tractable, whereas Contriever (768-dim, heavier model) was only practical on Kaggle P100/A100 GPU throughput.
+**Impact:** scripts/02_build_index.py reverted to MiniLM encoder; IVFPQ `m` must divide 384 evenly (m=48, matching the Session 2026-03-25 fix) rather than m=96 (768-dim Contriever setting). Compute strategy table updated: 02_build_index.py now RUN ON: LOCAL M1 PRO, not KAGGLE.
+**Note:** This is the second reversal on this axis (Contriever→MiniLM→Contriever→MiniLM). If a third reversal occurs, review whether the underlying constraint (compute budget vs. embedding quality) should be decided once and documented as non-negotiable to stop the churn.

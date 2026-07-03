@@ -4,6 +4,93 @@
 
 ---
 
+## Session — 2026-07-03
+### What was built
+- Verified paper identity consistency across CLAUDE.md, MASTER_CONTEXT.md, RESEARCH_DECISIONS.md, CURRENT_TASK.md — found no systems-paper contamination (no "Retrieve Assess Route", no cost-reduction claims); all four already reflected the measurement-study framing correctly.
+- Applied a second compute-target reversal per user direction: index build moves back to MiniLM + LOCAL M1 PRO (previously reversed to Contriever + Google Cloud A100).
+
+### Files changed
+- `docs/RESEARCH_DECISIONS.md` — appended "SECOND REVERSAL" decision entry (MiniLM, Local M1 Pro) with reasoning and a note flagging the Contriever↔MiniLM churn for future review
+- `docs/CURRENT_TASK.md` — updated to LOCAL M1 PRO + MiniLM task instructions (backed up to `.bak`)
+- `scripts/02_build_index.py` — MODEL_NAME reverted to sentence-transformers/all-MiniLM-L6-v2; encoding switched from manual Contriever mean-pooling to SentenceTransformer.encode(); device changed cuda→mps/cpu; IVFPQ m=96→48 (384-dim); header changed to RUN ON: LOCAL M1 PRO; runtime estimates updated (backed up to `.bak`)
+- `docs/MASTER_CONTEXT.md` — tech stack line, compute strategy table, and Current Status next-action note updated to LOCAL M1 PRO + MiniLM (backed up to `.bak`)
+- `CLAUDE.md` — compute strategy table row for 02_build_index.py updated to LOCAL M1 PRO
+
+### What works
+- All living docs now consistently point to one paper identity and one compute plan (MiniLM, local M1 Pro, full 21M run)
+- 02_build_index.py retains resume/checkpoint logic from prior sessions, now paired with MiniLM encoding and correct IVFPQ dims
+
+### What is broken or incomplete
+- Download step in 02_build_index.py still uses `wget`/`gunzip` shell calls (Kaggle-era); not yet verified these are available/work identically on macOS — untested locally
+- Full 21M passage index build has not been run yet under this new local/MiniLM configuration
+- Not committed/pushed — awaiting user confirmation
+
+### Next session should start with
+Confirm `wget` is available locally (or swap for a Python-native download), then run `python scripts/02_build_index.py` on the M1 Pro overnight per docs/CURRENT_TASK.md.
+
+---
+
+## Session — 2026-03-29 (Session 3)
+### What was built
+- Reverted scripts/02_build_index.py from MiniLM back to Contriever (facebook/contriever-msmarco)
+- Updated MASTER_CONTEXT.md and RESEARCH_DECISIONS.md to reflect reversal
+
+### Files changed
+- `scripts/02_build_index.py` — MODEL_NAME reverted to facebook/contriever-msmarco; encoding section replaced with Contriever mean-pooling (AutoTokenizer + AutoModel, attention mask pooling, torch.amp.autocast); m=48→96 for 768-dim; sentence-transformers import removed
+- `docs/MASTER_CONTEXT.md` — Retriever updated back to Contriever + FAISS IVFPQ
+- `docs/RESEARCH_DECISIONS.md` — MiniLM decision marked as REVERSED with reversal reason (Google Cloud A100 at 2500+ pass/sec)
+
+### What works
+- Contriever encoding with mean pooling is standard and correct for facebook/contriever-msmarco
+- Resume logic and per-1M checkpointing retained from previous session
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Run full 21M passage index build on Google Cloud A100. No TEST_MODE.
+
+---
+
+## Session — 2026-03-29 (Session 2)
+### What was built
+- Updated docs/MASTER_CONTEXT.md: MiniLM tech stack, fixed index build status
+- Appended MiniLM over Contriever decision to docs/RESEARCH_DECISIONS.md
+
+### Files changed
+- `docs/MASTER_CONTEXT.md` — Retriever updated to MiniLM-L6-v2 + FAISS IVFPQ; 02_build_index.py moved from MISSING to COMPLETE (test run); status entry updated with correct MiniLM/384-dim details
+- `docs/RESEARCH_DECISIONS.md` — Decision 9 added: MiniLM over Contriever (speed constraint, quality tradeoff, paper methodology note)
+
+### What works
+- Docs now accurately reflect current stack and index status
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Run full 21M passage index build on Kaggle P100. No TEST_MODE. ~9.5 hours required.
+
+---
+
+## Session — 2026-03-29
+### What was built
+- Added resume logic and per-1M checkpoint saves to scripts/02_build_index.py
+
+### Files changed
+- `scripts/02_build_index.py` — added CHECKPOINT_OFFSET_FILE; resume from start_idx on restart; checkpoint saved every 1M passages inside encoding loop; final checkpoint saved after encoding completes; updated header comment to say MiniLM
+
+### What works
+- If Kaggle session dies mid-encoding, restarting the script resumes from the last 1M checkpoint
+- CHECKPOINT_FILE + CHECKPOINT_OFFSET_FILE together track exact resume position
+
+### What is broken or incomplete
+- Nothing
+
+### Next session should start with
+Run full 21M passage index build on Kaggle P100. No TEST_MODE. ~9.5 hours required.
+
+---
+
 ## Session — 2026-03-25 (Session 4)
 ### What was built
 - Updated docs/CURRENT_TASK.md to reflect TEST MODE success and document full 21M run plan

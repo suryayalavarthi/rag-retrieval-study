@@ -5,27 +5,23 @@
 ---
 
 ## Current Task
-### Status
-TEST MODE passed successfully.
-100k passages indexed in 7.6 minutes.
-694 pass/sec on Kaggle P100 with MiniLM.
-Pipeline confirmed working end to end.
+### What to build today
+Run scripts/02_build_index.py locally on M1 Pro.
 
-### Next session task
-Run full 21M passage index build on Kaggle.
-Requires 10+ uninterrupted hours.
+### RUN ON: LOCAL M1 PRO
+Reason: 32GB RAM handles streaming easily. No Kaggle needed. Run overnight.
 
-### RUN ON: KAGGLE
-### Time required: ~9.5 hours total
-- 25 mins download
-- 8.4 hours encoding
-- 45 mins FAISS build
-- 30 mins download results before session ends
+### What done means
+- 21M DPR passages indexed with MiniLM (sentence-transformers/all-MiniLM-L6-v2)
+- FAISS IVFPQ index saved to results/faiss_index/
+- passages_meta.jsonl saved to results/
+- Runtime: estimated 10-15 hours overnight
 
-### Do not start unless you have 10+ hours available
+### Before running
+pip install transformers faiss-cpu torch tqdm sentence-transformers rank_bm25
 
-### Prerequisites
-- Fresh Kaggle session
-- P100 GPU
-- Internet ON
-- No TEST_MODE environment variable set
+### Command to run
+python scripts/02_build_index.py
+
+### Do not start until
+All dependencies installed and confirmed.

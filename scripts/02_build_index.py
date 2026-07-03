@@ -1,20 +1,20 @@
-# RUN ON: KAGGLE
-# Reason: Encoding 21M DPR Wikipedia passages requires GPU and significant memory.
+# RUN ON: LOCAL M1 PRO
+# Reason: 32GB RAM handles streaming easily. No GPU/Kaggle needed for MiniLM.
 
 """
 scripts/02_build_index.py
 
-Builds a FAISS retrieval index using facebook/contriever-msmarco
+Builds a FAISS retrieval index using sentence-transformers/all-MiniLM-L6-v2
 embeddings over the full DPR Wikipedia passage corpus (~21M passages).
 
 Outputs:
   BASE_DIR/results/faiss_index/index.faiss  — IVFPQ compressed FAISS index
   BASE_DIR/results/passages_meta.jsonl      — passage id + title only (no full text)
 
-Note: passages.jsonl (full text, ~13GB) is NOT saved to avoid Kaggle disk limit.
+Note: passages.jsonl (full text, ~13GB) is NOT saved to avoid disk bloat.
 Full passage text is retrieved at query time via passage ID.
 
-Run on Kaggle P100. Estimated runtime: 6-8 hours on Kaggle P100.
+Run locally on M1 Pro (32GB RAM). Estimated runtime: 10-15 hours overnight.
 """
 
 import os
@@ -35,7 +35,7 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 INDEX_DIR.mkdir(parents=True, exist_ok=True)
 
 # ── Config ────────────────────────────────────────────────────────────────────
-MODEL_NAME = "facebook/contriever-msmarco"
+MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 BATCH_SIZE = 1024
 SEED = 42
 PROGRESS_EVERY = 500_000
@@ -46,14 +46,12 @@ np.random.seed(SEED)
 torch.manual_seed(SEED)
 
 print("=" * 60)
-print("WARNING: This script takes 4-6 hours on Kaggle P100.")
-print("Do not close the Kaggle tab.")
-print("Kaggle session expires 12 hours from open.")
-print("Make sure you have time to download outputs.")
+print("WARNING: This script takes 10-15 hours on M1 Pro (CPU/MPS).")
+print("Run overnight. Do not close the terminal/sleep the laptop.")
 print("=" * 60)
-print("02_build_index.py — Build Contriever + FAISS Index")
+print("02_build_index.py — Build MiniLM + FAISS Index")
 print("=" * 60)
-print(f"Estimated runtime: 2-4 hours on Kaggle P100")
+print(f"Estimated runtime: 10-15 hours on local M1 Pro")
 print(f"Model         : {MODEL_NAME}")
 print(f"Corpus        : DPR Wikipedia (~21M passages)")
 print(f"Batch size    : {BATCH_SIZE}")
@@ -138,13 +136,11 @@ print(f"\n[3/4] Encoding passages with {MODEL_NAME}...")
 CHECKPOINT_FILE = RESULTS_DIR / "embeddings_checkpoint.npy"
 CHECKPOINT_OFFSET_FILE = RESULTS_DIR / "checkpoint_offset.txt"
 
-from transformers import AutoTokenizer, AutoModel
+from sentence_transformers import SentenceTransformer
 
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "mps" if torch.backends.mps.is_available() else "cpu"
 print(f"  Device: {device}")
-tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-model = AutoModel.from_pretrained(MODEL_NAME).to(device)
-model.eval()
+model = SentenceTransformer(MODEL_NAME, device=device)
 
 # Check if checkpoint exists and resume
 start_idx = 0
@@ -164,24 +160,13 @@ if start_idx < len(passages):
     for start in range(start_idx, len(texts), BATCH_SIZE):
         chunk_texts = texts[start:start+BATCH_SIZE]
 
-        inputs = tokenizer(
+        embeddings = model.encode(
             chunk_texts,
-            padding=True,
-            truncation=True,
-            max_length=128,
-            return_tensors="pt"
-        ).to(device)
-
-        with torch.no_grad():
-            with torch.amp.autocast('cuda'):
-                outputs = model(**inputs)
-
-        attention_mask = inputs["attention_mask"]
-        token_embeddings = outputs.last_hidden_state
-        input_mask_expanded = attention_mask.unsqueeze(-1).float()
-        embeddings = (token_embeddings * input_mask_expanded).sum(1)
-        embeddings = embeddings / input_mask_expanded.sum(1).clamp(min=1e-9)
-        embeddings = embeddings.cpu().float().numpy().astype(np.float32)
+            batch_size=BATCH_SIZE,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+            normalize_embeddings=False,
+        ).astype(np.float32)
 
         all_embeddings.append(embeddings)
 
@@ -224,7 +209,7 @@ t_faiss = time.time()
 
 dim = embeddings_matrix.shape[1]
 nlist = 4096
-m = 96
+m = 48  # 384 (MiniLM) / 48 = 8 bytes per subvector
 
 quantizer = faiss.IndexFlatIP(dim)
 index = faiss.IndexIVFPQ(quantizer, dim, nlist, m, 8)

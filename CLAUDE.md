@@ -83,7 +83,7 @@ Run on KAGGLE if ANY true: over 5 min, needs GPU, full dataset, many API calls, 
 | Script | Where | Reason |
 |--------|-------|--------|
 | 00_sanity_check.py | LAPTOP | Fast, no GPU, 200 samples |
-| 02_build_index.py | KAGGLE | Full corpus, needs memory |
+| 02_build_index.py | LOCAL M1 PRO | MiniLM + 32GB RAM handles streaming without GPU |
 | 03_generate_labels.py | KAGGLE | Thousands of API calls |
 | 04_train_scorer.py | KAGGLE | DeBERTa GPU training |
 | 05_run_experiments.py | KAGGLE | Full dataset, multiple models |

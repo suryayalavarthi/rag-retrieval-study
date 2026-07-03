@@ -39,7 +39,7 @@ Systematic empirical measurement across NQ, HotpotQA, MuSiQue:
 4. Can a lightweight scorer (DeBERTa) predict retrieval benefit before generation?
 
 ## Tech Stack
-- Retriever: Contriever + FAISS IVFPQ (measurement instrument)
+- Retriever: MiniLM (all-MiniLM-L6-v2) + FAISS IVFPQ (measurement instrument)
 - Scorer: DeBERTa-v3-base (measurement tool, not the contribution)
 - Models: GPT-4o (strong), GPT-4o-mini (weak)
 - Datasets: Natural Questions, HotpotQA, MuSiQue
@@ -95,7 +95,7 @@ Systematic empirical measurement across NQ, HotpotQA, MuSiQue:
 | Script | Where | Reason |
 |--------|-------|--------|
 | 00_sanity_check.py | LAPTOP | Fast, no GPU, 200 samples |
-| 02_build_index.py | KAGGLE | Full corpus, needs memory |
+| 02_build_index.py | LOCAL M1 PRO | MiniLM + 32GB RAM handles streaming without GPU |
 | 03_generate_labels.py | KAGGLE | Thousands of API calls |
 | 04_train_scorer.py | KAGGLE | DeBERTa GPU training |
 | 05_run_experiments.py | KAGGLE | Full dataset, multiple models |
@@ -132,12 +132,14 @@ Do not commit: results/, data/, *.faiss, *.bak, API keys
 
 ## Current Status
 > **Update this section at the end of every session.**
-- [ ] 02_build_index.py — COMPLETE (test run 100k passages). Full 21M run pending.
+- [ ] 02_build_index.py — COMPLETE (test run 100k passages, on Kaggle). Full 21M run pending.
   - 100,000 Wikipedia passages indexed (TEST MODE)
   - MiniLM-L6-v2 embeddings 384 dimensions
   - 694 pass/sec on Kaggle P100
   - Runtime: 7.6 minutes (TEST MODE)
-  - Full 21M run: ~8.4 hours encoding + 45 min FAISS build
+  - **Next Action:** Full 21M run now targeted for LOCAL M1 PRO (not Kaggle/A100) —
+    second reversal back to MiniLM, see RESEARCH_DECISIONS.md 2026-07-03 entry.
+    Estimated ~10-15 hours overnight on M1 Pro.
 - [ ] Labels generated (03_generate_labels.py)
 - [ ] Scorer trained (04_train_scorer.py)
 - [ ] Main experiments run (05_run_experiments.py)
