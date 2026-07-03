@@ -4,6 +4,26 @@
 
 ---
 
+## Session — 2026-07-03 (Session 4)
+### What was built
+- Deleted `claude ai resources/Research_Plan_Cost_Aware_RAG.docx` — the last remaining old systems-paper artifact flagged in prior sessions.
+- Closed the "second verifier" open question in `docs/MASTER_CONTEXT.md`: replaced "include or drop given framing shift?" with "DROPPED permanently."
+
+### Files changed
+- `claude ai resources/Research_Plan_Cost_Aware_RAG.docx` — deleted
+- `docs/MASTER_CONTEXT.md` — Open Questions item 2 updated to reflect permanent decision
+
+### What works
+- No known remaining systems-paper artifacts or unresolved framing questions in the project. All flagged items from the last three sessions' cleanup are now resolved.
+
+### What is broken or incomplete
+- Nothing known.
+
+### Next session should start with
+Continue with the local M1 Pro index build (scripts/02_build_index.py) per docs/CURRENT_TASK.md.
+
+---
+
 ## Session — 2026-07-03 (Session 3)
 ### What was built
 - Rewrote CLAUDE.md Project Summary section to match the finalized measurement-study framing (title, type, goal, target venue, arXiv date, what-we-measure, what-we-do-NOT-claim, stack, compute).
