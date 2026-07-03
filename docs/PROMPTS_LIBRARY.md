@@ -4,20 +4,25 @@
 
 ---
 
-## PROMPT-001 — Start Any AI Session (Strategy Chat)
-**Use for:** Opening any new conversation with Claude.ai or ChatGPT about this paper
-**Paste this:**
-```
-I'm working on a research paper: "Retrieve, Assess, Route: Cost-Efficient RAG through Adaptive Context Sufficiency Scoring"
+## PROMPT-001 — Session Opener (Strategy Chat)
+Use this to open every new Claude AI advisor session.
 
-Here is my full project context:
-[paste MASTER_CONTEXT.md]
+I am working on this research paper:
 
-Here is my current task:
-[paste CURRENT_TASK.md]
+Title: "Does Retrieval Actually Help? A Large-Scale Empirical Study of When RAG Succeeds, Fails, and Wastes Money"
 
-Please read both carefully before responding. Ask clarifying questions if needed.
-```
+Type: Measurement study. NOT a systems paper.
+
+Primary contribution: Systematic measurement of when retrieval helps, hurts, or is neutral across NQ, HotpotQA, and MuSiQue using GPT-4o and GPT-4o-mini. Releasing labeled dataset on HuggingFace and public leaderboard.
+
+What we do NOT claim:
+- We do not claim our system beats baselines
+- We do not claim cost reduction percentages
+- This is not a systems paper
+
+Current status: Building FAISS index locally on M1 Pro. Next step: label generation.
+
+My question today: [INSERT YOUR QUESTION]
 
 ---
 
@@ -44,29 +49,6 @@ Do not add features beyond what is listed. Do not refactor code I haven't asked 
 Based on everything we just decided, write me a complete CURRENT_TASK.md
 that I can paste at the start of my next Claude Code session.
 Be specific about files, what done means, and constraints.
-```
-
----
-
-## PROMPT-004 — Second Verifier (Sufficiency Judge)
-**Use for:** Claude API call to verify borderline sufficiency scores
-**System prompt:**
-```
-You are a retrieval quality judge. Given a question and retrieved passages,
-determine whether the passages contain sufficient information to answer the question correctly.
-Respond with JSON only: {"sufficient": true/false, "confidence": 0.0-1.0, "reason": "one sentence"}
-Do not answer the question. Only judge whether the context is sufficient to answer it.
-```
-**User message format:**
-```
-Question: {query}
-
-Retrieved passages:
-{passage_1}
-{passage_2}
-{passage_3}
-
-Is the retrieved context sufficient to answer the question?
 ```
 
 ---
